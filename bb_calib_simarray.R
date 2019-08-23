@@ -5,24 +5,27 @@ rm(list=ls())
 # ! for ACCRE
 # wdir <- file.path("~/bayes_cop_calib")
 
-## function to calculate beta dist. parameters given mean proportion and var from
-# https://stats.stackexchange.com/questions/12232/calculating-the-parameters-of-a-beta-distribution-using-the-mean-and-variance
-estBetaParams <- function(p, var) {
-  # check if var >= p(1-p)
-  if (var>=p*(1-p)) stop("must have var < p*(1-p)")
+##' @title Calculate Beta distribution parameters given mean and variance
+##' @param mu mean of Beta distribution
+##' @param var variance of Beta distribution
+##' @return alpha and beta parameters
+##' @references https://stats.stackexchange.com/questions/12232/calculating-the-parameters-of-a-beta-distribution-using-the-mean-and-variance
+estBetaParams <- function(mu, var) {
+  # check if var >= mu(1-mu)
+  if (var>=mu*(1-mu)) stop("must have var < mu*(1-mu)")
   
-  alpha <- ((1 - p) / var - 1 / p) * p ^ 2
-  beta <- alpha * (1 / p - 1)
+  alpha <- ((1 - mu) / var - 1 / mu) * mu ^ 2
+  beta <- alpha * (1 / mu - 1)
   return(c(alpha = alpha, beta = beta))
 }
 
-#beta_parms<-estBetaParams(0.5,0.02)
-#hist(rbeta(1000,beta_parms[1],beta_parms[2]))
-
-## function to make random draw from (scaled) beta dist. 
-## with means vec and variance var
-## lb and ub are lower and upper bounds of scaled beta draws
-drawBeta <- function(mn_vec, var=0.05^2, lb=0, ub=1){
+##' @title Make random draws from (scaled) Beta dist. given means and variance var
+##' @param mn_vec a vector of means of (scaled) Beta distribution
+##' @param var scalar variance of (scaled) Beta distribution
+##' @param lb lower bound of scaled Beta dist (default=0)
+##' @param ub upper bound of scaled Beta dist (default=1)
+##' @return alpha and beta parameters
+drawBeta <- function(mn_vec, var, lb=0, ub=1){
   # scale from (lb,ub) to (0,1)
   mn_vec_sc <- (mn_vec - lb)/(ub - lb) 
   var_sc <- var/(ub-lb)^2
@@ -32,78 +35,9 @@ drawBeta <- function(mn_vec, var=0.05^2, lb=0, ub=1){
 } 
 
 
-## function to make random draw from beta distribution with means pvec and variance v
-# for prob. eff and prob AE
-# beta_draw0 <-function(p_vec, v=0.02){
-#   betaparms <- lapply(p_vec, function(x) estBetaParams(x,v))
-#   sapply(betaparms, function(x) rbeta(1,x[[1]],x[[2]]))
-# }
-
-#beta_draw(a3[1,4:7])
-
-#! scratch
-if (0){
-  beta_draw0<-function(p, v=0.02){
-    p_par <- estBetaParams(p,v)
-    rbeta(1,p_par$alpha,p_par$beta)
-  }
-  
-  beta_draw0(p_e1)
-  
-  beta_draw1<-function(p, v=0.02){
-    p1_par <- estBetaParams(p[1],v)
-    p2_par <- estBetaParams(p[2],v)
-    p3_par <- estBetaParams(p[3],v)
-    p4_par <- estBetaParams(p[4],v)
-    c(rbeta(1,p1_par[[1]],p1_par[[2]]),
-      rbeta(1,p2_par[[1]],p2_par[[2]]),
-      rbeta(1,p3_par[[1]],p3_par[[2]]),
-      rbeta(1,p4_par[[1]],p4_par[[2]]))
-  }
-  
-  foo<-lapply(a3[1,4:7],function(x) estBetaParams(x,v=0.02))
-  
-  sapply(foo,function(x) rbeta(1,x[[1]],x[[2]]))
-  
-  p_e1_par <- estBetaParams(p_e1,0.02)
-  p_e1_dr <- rbeta(1,p_e1_par$alpha,p_e1_par$beta)
-}
-
-## function to make random draw from scaled beta dist. with means rho_vec and variance v
-# for tetrachoric corr (rho) between outcomes
-# omega_draw <- function(rho_vec, v=0.05^2){
-#   # scale from (a,c) to (0,1)
-#   a <- -1
-#   c <- 1
-#   rho_vec_sc <- (rho_vec - a)/(c- a) 
-#   v_sc <- v/(c-a)^2
-#   
-#   betaparms <- lapply(rho_vec_sc, function(x) estBetaParams(x,v_sc))
-#   sapply(betaparms, function(x) rbeta(1,x[[1]],x[[2]])*(c - a) + a)
-# } 
-# 
-
-# verify correct scaling for beta dist.
-if (0){
-  #draw between (a,c) centered at true rho 
-  a<- -1
-  c<- 1
-  
-  rho <- 0.75
-  v <- 0.05^2
-  rho_sc <- (rho - a)/(c- a) # scale from (-1,1) to (0,1); (p + 1)/(2)
-  v_sc <- v/(c-a)^2
-  pars<-estBetaParams(rho_sc, v_sc)
-  vals<-rbeta(5000,pars[1],pars[2])*(c - a) + a
-  
-  mean(vals)
-  sd(vals)
-  hist(vals)
-}
-
 #! scratch
 if (0){ 
-  # bounds for tetrachoric correlation given true proportions?
+  # check bounds for tetrachoric correlation given true proportions?
   library(polycor)
   
   n<-1e5
@@ -138,6 +72,7 @@ if (0){
   
   table(pbo_samps[,1], pbo_samps[,2])
 }
+
 
 ## make sim params array
 set.seed(341884)
@@ -204,4 +139,3 @@ bb_calib_simarray$sim_id <- 1:nrow(bb_calib_simarray)
 # save simulation array
 #saveRDS(bb_calib_simarray, file = file.path(wdir,"bb_calib_simarray.rds"))
 saveRDS(bb_calib_simarray, file = file.path(getwd(),"bb_calib_simarray_local.rds"))
-
