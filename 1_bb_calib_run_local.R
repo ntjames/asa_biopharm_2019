@@ -1,5 +1,6 @@
 ## binary-binary model for copula calibration - simulate data and sample from posterior 
 ## LOCAL version
+rm(list=ls())
 
 libs <- c("copula", "magrittr", "rstan", "sfsmisc")
 invisible(lapply(libs, library, character.only = TRUE))
@@ -14,81 +15,68 @@ wdir<-file.path("/home/nathan/Dropbox/njames/school/PhD/misc/conferences/Biophar
 # load sim array
 #bb_calib_simarray <- readRDS(file.path(wdir,"bb_calib_simarray.rds"))
 
-#! remove and use above for accre version
+#! remove and use above for ACCRE version
 bb_calib_simarray <- readRDS(file.path(wdir,"bb_calib_simarray_local.rds"))
 
 
-#select parameters for given sim id using SLURM_ARRAY_TASK_ID
+# select parameters for given sim id using SLURM_ARRAY_TASK_ID
 arg <- commandArgs(trailing=TRUE)
 s_id <- as.integer(arg[1])
 
-#! remove and use above for accre version
-#s_id <- 18
+#! remove and use above for ACCRE version
+# s_id <- 18
 
-sim_params <- bb_calib_simarray[bb_calib_simarray$sim_id == s_id,]
+sim_parm <- bb_calib_simarray[bb_calib_simarray$sim_id == s_id,]
 
 ### Simulate data ###
+# NB: can estimate tetrachoric correlation in samples with polycor::polychor
 
-# function to make n_samps samples given marg. binomial probs and Normal copula rho
-mk_samps<-function(n_samps, p_e, p_s, rh){
-nc <- normalCopula(rh)
+##' @title Make bivariate samples given marg. binomial probs and Normal copula parameter
+##' @param n number of samples
+##' @param p_1 probability of success for 1st marginal dist. 
+##' @param p_2 probability of success for 2nd marginal dist. '
+##' @param rho Normal copula dependence parameter
+##' @return n x 2 matrix
+mk_samps<-function(n, p_1, p_2, rho){
+nc <- normalCopula(rho)
 dist <- mvdc(nc, margins = c("binom", "binom"),
-             paramMargins = list(list(size = 1, prob = p_e), 
-                                 list(size = 1, prob = p_s)) )
+             paramMargins = list(list(size = 1, prob = p_1), 
+                                 list(size = 1, prob = p_2)) )
 
-samps <- rMvdc(n_samps, dist)   
-return(samps)
+# n random draws from multivariate dist.
+rMvdc(n, dist)   
 }
 
 # set seed
-set.seed(sim_params$dat_seed)
+set.seed(sim_parm$dat_seed)
 
 # number of samples per arm
-n <- sim_params$n
+n <- sim_parm$n
 
 ## placebo group
-#p_e1 <- 0.2 # prob effective
-#p_s1 <- 0.1 # prob AE
-#rho_1 <- 0.1 # tetrachoric correlation, can estimate with polycor::polychor
-pbo_samps <- mk_samps(n, sim_params$p_e1_tr, sim_params$p_s1_tr, sim_params$rho_1_tr)
-
-
-#! normal copula
-#! nc_p <- normalCopula(sim_params$rho1_tr)
-#! pbo_dist <- mvdc(nc_p, margins = c("binom", "binom"),
-#!                  paramMargins = list(list(size = 1, prob = sim_params$p_e1_tr), 
-#!                                      list(size = 1, prob = sim_params$p_s1_tr)) )
-#! 
-#! pbo_samps <- rMvdc(n, pbo_dist)
+pbo_samps <- mk_samps(n, sim_parm$p_e1_tr, sim_parm$p_s1_tr, sim_parm$rho_1_tr)
 
 ## treatment group
-#p_e2 <- sim_params$p_e2 # prob effective
-#p_s2 <- sim_params$p_s2 # prob AE
-#rho_2 <- sim_params$rho_2 # tetrachoric corr
-
-trt_samps <- mk_samps(n, sim_params$p_e2_tr, sim_params$p_s2_tr, sim_params$rho_2_tr)
-
-#! normal copula
-#! nc_t <- normalCopula(sim_params$rho2_tr)
-#! trt_dist <- mvdc(nc_t, margins = c("binom", "binom"),
-#!                  paramMargins = list(list(size = 1, prob = sim_params$p_e2_tr), 
-#!                                      list(size = 1, prob = sim_params$p_s2_tr)) )
-#! 
-#! trt_samps <- rMvdc(n, trt_dist)
+trt_samps <- mk_samps(n, sim_parm$p_e2_tr, sim_parm$p_s2_tr, sim_parm$rho_2_tr)
 
 #combine placebo and treatment data
-dat_bb <- rbind(pbo_samps,trt_samps) %>% cbind(sort(rep(c(0,1),n)),
-                                               sort(rep(c(0,1),n),decreasing=TRUE),
-                                               sort(rep(c(0,1),n))) %>% as.data.frame() 
+dat_bb <- rbind(pbo_samps,trt_samps) %>% 
+          cbind(sort(rep(c(0,1),n)),
+              sort(rep(c(0,1),n),decreasing=TRUE),
+              sort(rep(c(0,1),n))) %>% 
+          as.data.frame() 
+
 names(dat_bb) <- c("efficacy","safety","treatment","trt1","trt2")
 
 dat_bb_short <- plyr::count(dat_bb,vars=names(dat_bb))
 
-# format data for stan
+# format data for Stan
+if (0){
 mod_data_bb <- list(N=nrow(dat_bb), 
                     x=dat_bb[,c("trt1","trt2")], 
                     y_e=dat_bb$efficacy, 
                     y_s=dat_bb$safety)
+}
 
 mod_data_bb_short <- list(N=nrow(dat_bb_short),
                           x=dat_bb_short[,c("trt1","trt2")],
@@ -103,12 +91,12 @@ options(mc.cores = parallel::detectCores())
 n_chains <- 4
 #n_warmup1 <- 3000
 #n_iter1 <- n_warmup1+2500
-n_warmup2 <- 5000
-n_iter2 <- n_warmup2+1250
+n_warmup <- 5000
+n_iter <- n_warmup+1250
 
-samp_seed <- sim_params$samp_seed
+samp_seed <- sim_parm$samp_seed
 
-# Load pre-compiled models from bbmod_init.R
+## Load pre-compiled models from 0_bbmod_calib_init.R ##
 #mod_bb_e <- readRDS(file.path(wdir,"mod_bb_e.rds"))
 #mod_bb_s <- readRDS(file.path(wdir,"mod_bb_s.rds"))
 #mod_bb_jnt <- readRDS(file.path(wdir,"mod_bb_jnt.rds"))
@@ -118,19 +106,18 @@ samp_seed <- sim_params$samp_seed
 #mod_bb_s <- readRDS(file.path(wdir,"mod_bb_s_local.rds"))
 
 # define which model should be used
-# 1 - uniform; 2 - ...
-mod_num<-sim_params$mod_num
+# 1 - flat priors; 2 - ...
+mod_num <- sim_parm$mod_num
 
 # for ACCRE
 # mod_path<-paste0("mod_bb_jnt",mod_num,".rds")
 
 #! remove and use above for accre version
-mod_path<-paste0("mod_bb_jnt",mod_num,"_local.rds")
+mod_path <- paste0("mod_bb_jnt",mod_num,"_local.rds")
 
 mod_bb_jnt <- readRDS(file.path(wdir,mod_path))
 
-## Sample from compiled models
-
+## Sample from compiled models ##
 
 # efficacy marginal model
 if (0){
@@ -171,20 +158,18 @@ init_list0 <- list(beta_e=mle_bb_e$coefficients, beta_s=mle_bb_s$coefficients)
 init_list <- lapply(1:n_chains, function(x) lapply(init_list0 ,jitter, amount=1.5))
 
 fit_bb_jnt <- sampling(mod_bb_jnt, data=mod_data_bb_short, seed=samp_seed,
-                   iter=n_iter2, chains=n_chains, warmup=n_warmup2,
-                   init=init_list, control = list(adapt_delta = 0.99))
+                       chains=n_chains, iter=n_iter, warmup=n_warmup,
+                       init=init_list, control = list(adapt_delta = 0.99))
 
 
-#str(rstan::extract(fit_bb_jnt))
-
+# get summary of posterior
 assign(paste0("summ_bb_jnt_",s_id), summary(fit_bb_jnt)$summary)
 
-# save divergences 
-# add other diagnostic measures??
-divs <- do.call(c, lapply(1:n_chains, function(x)
-        get_sampler_params(fit_bb_jnt, inc_warmup=FALSE)[[x]][,'divergent__']))
-
-n_divs <- sum(divs)
+# get number of divergences 
+#!! add other diagnostic measures??
+n_divs <- do.call(c, lapply(1:n_chains, function(x)
+        get_sampler_params(fit_bb_jnt, inc_warmup=FALSE)[[x]][,'divergent__'])) %>%
+        sum()
 
 #get_sampler_params(fit_bb_jnt, inc_warmup=FALSE)[[1]][,'divergent__']
 
@@ -192,34 +177,33 @@ n_divs <- sum(divs)
 #assign(paste0("samp_bb_jnt_",s_id), as.matrix(fit_bb_jnt, pars=c("omega","p_e","p_s")))
 
 # check pairs plot
- # pairs(fit_bb_jnt,pars=c("beta_e[1]","beta_e[2]",
- #                        "beta_s[1]","beta_s[2]",
- #                        "rho_[1]","rho_[2]","lp__"))
-
+# pairs(fit_bb_jnt,pars=c("beta_e[1]","beta_e[2]",
+#                        "beta_s[1]","beta_s[2]",
+#                        "rho_[1]","rho_[2]","lp__"))
 
 if (0){
 # store results in scratch
 sdir <- file.path("/gpfs23/scratch/jamesnt")
 
 # keep 3 fits, dataset (dat_bb), sim parameters
-save(fit_bb_e, fit_bb_s, fit_bb_jnt, dat_bb, sim_params, 
+save(fit_bb_e, fit_bb_s, fit_bb_jnt, dat_bb, sim_parm, 
      file=file.path(sdir,"bbsims", paste0("bb_sim_",s_id,".RData")))
 }
 
 
 # keep summaries and samples, dataset (dat_bb_short), sim parameters
 assign(paste0("dat_bb_short_",s_id),dat_bb_short)
-assign(paste0("sim_params_",s_id),sim_params)
+assign(paste0("sim_parm_",s_id),sim_parm)
 assign(paste0("n_divs_",s_id),n_divs)
 
 # save samples
 #savelist <- c("summ_bb_e", "samp_bb_e", "summ_bb_s", "samp_bb_s", 
-#"summ_bb_jnt", "samp_bb_jnt", "dat_bb", "sim_params")
+#"summ_bb_jnt", "samp_bb_jnt", "dat_bb", "sim_parm")
 
 # save separate marginal models
-#savelist <- c("summ_bb_e", "summ_bb_s","summ_bb_jnt", "dat_bb_short", "sim_params")
+#savelist <- c("summ_bb_e", "summ_bb_s","summ_bb_jnt", "dat_bb_short", "sim_parm")
 
-savelist <- c("summ_bb_jnt", "dat_bb_short", "sim_params", "n_divs")
+savelist <- c("summ_bb_jnt", "dat_bb_short", "sim_parm", "n_divs")
 
 #save(list=paste0(savelist,"_",s_id), 
 #     file=file.path(wdir,"bbsims", paste0("bb_sim_",s_id,".RData")))
