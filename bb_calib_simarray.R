@@ -19,12 +19,25 @@ estBetaParams <- function(p, var) {
 #beta_parms<-estBetaParams(0.5,0.02)
 #hist(rbeta(1000,beta_parms[1],beta_parms[2]))
 
+## function to make random draw from (scaled) beta dist. 
+## with means vec and variance var
+## lb and ub are lower and upper bounds of scaled beta draws
+drawBeta <- function(mn_vec, var=0.05^2, lb=0, ub=1){
+  # scale from (lb,ub) to (0,1)
+  mn_vec_sc <- (mn_vec - lb)/(ub - lb) 
+  var_sc <- var/(ub-lb)^2
+  
+  betaparms <- lapply(mn_vec_sc, function(x) estBetaParams(x,var_sc))
+  sapply(betaparms, function(x) rbeta(1,x[[1]],x[[2]])*(ub - lb) + lb)
+} 
+
+
 ## function to make random draw from beta distribution with means pvec and variance v
 # for prob. eff and prob AE
-beta_draw <-function(p_vec, v=0.02){
-  betaparms <- lapply(p_vec, function(x) estBetaParams(x,v))
-  sapply(betaparms, function(x) rbeta(1,x[[1]],x[[2]]))
-}
+# beta_draw0 <-function(p_vec, v=0.02){
+#   betaparms <- lapply(p_vec, function(x) estBetaParams(x,v))
+#   sapply(betaparms, function(x) rbeta(1,x[[1]],x[[2]]))
+# }
 
 #beta_draw(a3[1,4:7])
 
@@ -58,16 +71,17 @@ if (0){
 
 ## function to make random draw from scaled beta dist. with means rho_vec and variance v
 # for tetrachoric corr (rho) between outcomes
-omega_draw <- function(rho_vec, v=0.05^2){
-  # scale from (a,c) to (0,1)
-  a <- -1
-  c <- 1
-  rho_vec_sc <- (rho_vec - a)/(c- a) 
-  v_sc <- v/(c-a)^2
-  
-  betaparms <- lapply(rho_vec_sc, function(x) estBetaParams(x,v_sc))
-  sapply(betaparms, function(x) rbeta(1,x[[1]],x[[2]])*(c - a) + a)
-} 
+# omega_draw <- function(rho_vec, v=0.05^2){
+#   # scale from (a,c) to (0,1)
+#   a <- -1
+#   c <- 1
+#   rho_vec_sc <- (rho_vec - a)/(c- a) 
+#   v_sc <- v/(c-a)^2
+#   
+#   betaparms <- lapply(rho_vec_sc, function(x) estBetaParams(x,v_sc))
+#   sapply(betaparms, function(x) rbeta(1,x[[1]],x[[2]])*(c - a) + a)
+# } 
+# 
 
 # verify correct scaling for beta dist.
 if (0){
@@ -159,11 +173,11 @@ a2 <- do.call("rbind", replicate(nreps, a1, simplify = FALSE))
 a3 <- a2[order(a2$n,a2$rho_2,a2$p_e2,a2$p_s2),]
 
 ## add draws from true dist.
-p_draws0 <- sapply(1:nrow(a3), function(x) beta_draw(a3[x,4:7]))
+p_draws0 <- sapply(1:nrow(a3), function(x) drawBeta(a3[x,4:7],var=0.15^2))
 p_draws <- t(p_draws0)
 colnames(p_draws) <- paste0(rownames(p_draws0),"_tr")
 
-rho_draws0 <- sapply(1:nrow(a3), function(x) omega_draw(a3[x,2:3]))
+rho_draws0 <- sapply(1:nrow(a3), function(x) drawBeta(a3[x,2:3],var=0.05^2,lb=-1,ub=1))
 rho_draws <- t(rho_draws0)
 colnames(rho_draws) <- paste0(rownames(rho_draws0),"_tr")
 
