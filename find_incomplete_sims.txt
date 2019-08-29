@@ -1,0 +1,16 @@
+
+
+
+# list sim numbers with .out file (i.e. sim started)
+cd ~/bayes_cop_calib/cbout
+ls *.out | sed -e 's/cbmod_sim_//' -e 's/.out//' > ../outfiles.txt
+
+# list sim numbers with .RData file (i.e. sim completed)
+cd ~/bayes_cop_calib/cbsims
+ls *.RData | sed -e 's/cb_sim_//' -e 's/.RData//' > ../simfiles.txt
+
+# compare files
+cd ~/bayes_cop_calib
+grep -Fxv -f simfiles.txt outfiles.txt > incompsim.txt
+
+#also check comm command
