@@ -1,3 +1,9 @@
+# other output to ignore
+.R.Rout
+sims/
+sims_local/
+archive/
+
 # History files
 .Rhistory
 .Rapp.history
