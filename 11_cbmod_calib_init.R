@@ -24,7 +24,7 @@ model {
 vector[N] mu;
 
 // priors
-beta_e ~ normal(0,10);
+beta_e ~ normal(0,1000);
 sigma ~ inv_gamma(0.001,0.001);
 
 // marginal for continuous (efficacy) outcome
@@ -150,7 +150,7 @@ vector[N] p;
 vector[N] theta;
 
 // weakly informative priors for beta_e and beta_s (and s?)  
-beta_e ~ normal(0,10);
+beta_e ~ normal(0,1000);
 beta_s ~ normal(0,10);
 s ~ inv_gamma(0.001,0.001);
 
@@ -217,7 +217,7 @@ vector[N] p;
 vector[N] theta;
 
 // weakly informative priors for beta_e and beta_s (and s?)  
-beta_e ~ normal(0,10);
+beta_e ~ normal(0,1000);
 beta_s ~ normal(0,10);
 s ~ inv_gamma(0.001,0.001);
 

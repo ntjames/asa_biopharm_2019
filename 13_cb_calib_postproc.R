@@ -7,7 +7,6 @@ invisible(lapply(libs, library, character.only = TRUE))
 # set working directory
 wdir<-file.path("/home/nathan/Dropbox/njames/school/PhD/misc/conferences/Biopharm2019/bayes_cop_calib_code")
 
-
 if (0){
 # summary function for separate marginal mods in addition to joint mod
 cb_summ_sim0 <- function(s_id){
@@ -101,7 +100,7 @@ cb_sim_files_num <- substr(cb_sim_files,8,50) %>% strsplit(".R") %>%
   do.call(rbind,.) %>% `[`(,1) %>% as.numeric() %>% sort()
 
 # load and process sims in batches
-bsize <- 6
+bsize <- 600
 doBatch(cb_sim_files_num, bsize)
 
 cb_summ_dat_vec <- ls()[grep("cb_summ_dat0_",ls())]
@@ -123,11 +122,10 @@ cb_params_dat <- cb_params_dat0 %>%
   spread(suffix,val) %>% 
   rename(draw_par=r, true_par_mn=`<NA>`)
 
-rm(list=c(cb_summ_dat_vec,cb_params_dat_vec))
-
 # merge cb_params_dat and cb_summ_dat by sim_id and param
 cb_sim_dat <-left_join(cb_summ_dat,cb_params_dat,by=c("sim_id","param"))
 
+rm(list=c(cb_summ_dat_vec,cb_params_dat_vec))
 
 cb_ndivs_vec <- ls()[grep("n_divs_",ls())]
 
@@ -139,11 +137,10 @@ cb_ndivs_dat<-bind_rows(sapply(cb_ndivs_vec, get, simplify = FALSE)) %>%
 cb_parm_div_dat<-left_join(cb_params_dat0,cb_ndivs_dat,by=c("sim_id"))
 
 
-
 rm(list=c(cb_ndivs_vec))
 
-# save binary-binary simulation data
+# save continuous-binary simulation data
 save(list=c("cb_sim_dat","cb_parm_div_dat"), 
-     file=file.path(wdir,"sims_local", "cb_simulations.RData"))
+     file=file.path(wdir,"sims", "cb_simulations.RData"))
 
 rm(cb_ndivs_dat,cb_params_dat0,cb_params_dat, cb_summ_dat)
