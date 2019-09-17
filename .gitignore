@@ -1,5 +1,6 @@
 # other output to ignore
 .R.Rout
+plots/
 sims/
 sims_local/
 archive/
